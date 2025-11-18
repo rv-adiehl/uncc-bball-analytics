@@ -30,8 +30,8 @@ A Next.js application for tracking and analyzing possession data in sports coach
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/YOUR_USERNAME/coach-labeler-possession-tracking.git
-cd coach-labeler-possession-tracking
+git clone https://github.com/rv-adiehl/uncc-bball-analytics.git
+cd uncc-bball-analytics
 ```
 
 2. Install dependencies:
