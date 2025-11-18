@@ -1,0 +1,164 @@
+
+'use client';
+import React, { createContext, useContext, useEffect, useMemo, useReducer } from 'react';
+import type { ActionGroup, Game, Player, PlayerAction, PlayerPossessionStat, Possession, PossessionPlayer, PossPhase } from './schema';
+
+type State = {
+  games: Game[];
+  players: Player[];
+  possessions: Possession[];
+  possPlayers: PossessionPlayer[];
+  possPhases: PossPhase[];
+  actionGroups: ActionGroup[];
+  playerActions: PlayerAction[];
+  possessionStats: PlayerPossessionStat[];
+  currentGameId?: string;
+  nextPossId: number;
+};
+
+type Action =
+| { type: 'LOAD_STATE'; payload: State }
+| { type: 'SET_CURRENT_GAME'; game: Game }
+| { type: 'CLEAR_CURRENT_GAME' }
+| { type: 'UPSERT_PLAYER'; player: Player }
+| { type: 'SET_TEAM_ROSTER'; team_code: string; players: Player[] }
+| { type: 'LOAD_SAMPLE_ROSTER' }
+| { type: 'START_POSSESSION'; possession: Possession }
+| { type: 'UPSERT_POSSESSION'; possession: Possession }
+| { type: 'ADD_POSSESSION_PLAYERS'; rows: PossessionPlayer[] }
+| { type: 'ADD_PHASE'; row: PossPhase }
+| { type: 'ADD_GROUP'; row: ActionGroup }
+| { type: 'ADD_ACTION'; row: PlayerAction }
+| { type: 'DELETE_ACTION'; index: number }
+| { type: 'UPSERT_POSSESSION_STAT'; row: PlayerPossessionStat }
+| { type: 'DELETE_POSSESSION_STAT'; statId: string }
+| { type: 'RESET_CURRENT_POSSESSION' };
+
+const initial: State = {
+  games: [],
+  players: [],
+  possessions: [],
+  possPlayers: [],
+  possPhases: [],
+  actionGroups: [],
+  playerActions: [],
+  possessionStats: [],
+  nextPossId: 1
+};
+
+function reducer(state: State, action: Action): State {
+  switch (action.type) {
+    case 'LOAD_STATE':
+      return {
+        ...initial,
+        ...action.payload,
+        possessionStats: (action.payload.possessionStats || []).map(stat => ({
+          ...stat,
+          action_seq: stat.action_seq || 1
+        }))
+      };
+    case 'SET_CURRENT_GAME':
+      return {
+        ...state,
+        currentGameId: action.game.game_id,
+        games: state.games.filter(g => g.game_id !== action.game.game_id).concat([action.game]),
+        nextPossId: state.nextPossId || 1
+      };
+    case 'CLEAR_CURRENT_GAME':
+      return {
+        ...state,
+        currentGameId: undefined
+      };
+    case 'UPSERT_PLAYER': {
+      const filtered = state.players.filter(p => p.player_id !== action.player.player_id || p.team_code !== action.player.team_code);
+      return { ...state, players: filtered.concat([action.player]) };
+    }
+    case 'SET_TEAM_ROSTER': {
+      const others = state.players.filter(p => p.team_code !== action.team_code);
+      return { ...state, players: others.concat(action.players) };
+    }
+    case 'LOAD_SAMPLE_ROSTER': {
+      const sample = [
+        ["KB","1","Kylan Blackmon","CHA"],
+        ["DM","2","Dezayne Mingo","CHA"],
+        ["BB","3","Ben Bradford","CHA"],
+        ["MF","5","Major Freeman","CHA"],
+        ["KM","7","Kuluel Mading","CHA"],
+        ["FO","8","Frank Oguche","CHA"],
+        ["SE","9","Spencer Elliott","CHA"],
+        ["DH","10","Damoni Harrison","CHA"],
+        ["DG","11","David Gomez","CHA"],
+        ["AC","12","Arden Conyers","CHA"],
+        ["EB","15","Ethan Butler","CHA"],
+        ["JE","25","Jarne Eyenga","CHA"],
+        ["NR","31","Nick Richart","CHA"],
+        ["RV","44","Raul Villar","CHA"],
+        ["AB","49","Anton Bonke","CHA"]
+      ];
+      const players: Player[] = sample.map(([id, jersey, name, team]) => ({ player_id: id, jersey, name, team_code: team }));
+      return { ...state, players };
+    }
+    case 'START_POSSESSION': {
+      const poss = action.possession;
+      return {
+        ...state,
+        possessions: state.possessions.concat([poss]),
+        nextPossId: Math.max(state.nextPossId, poss.poss_id + 1)
+      };
+    }
+    case 'UPSERT_POSSESSION': {
+      const filtered = state.possessions.filter(p => !(p.game_id===action.possession.game_id && p.poss_id===action.possession.poss_id));
+      return { ...state, possessions: filtered.concat([action.possession]) };
+    }
+    case 'ADD_POSSESSION_PLAYERS':
+      return { ...state, possPlayers: state.possPlayers.concat(action.rows) };
+    case 'ADD_PHASE':
+      return { ...state, possPhases: state.possPhases.concat([action.row]) };
+    case 'ADD_GROUP':
+      return { ...state, actionGroups: state.actionGroups.concat([action.row]) };
+    case 'ADD_ACTION':
+      return { ...state, playerActions: state.playerActions.concat([action.row]) };
+    case 'DELETE_ACTION': {
+      const copy = state.playerActions.slice();
+      copy.splice(action.index, 1);
+      return { ...state, playerActions: copy };
+    }
+    case 'UPSERT_POSSESSION_STAT': {
+      const filtered = state.possessionStats.filter(stat => stat.id !== action.row.id);
+      return { ...state, possessionStats: filtered.concat([action.row]) };
+    }
+    case 'DELETE_POSSESSION_STAT': {
+      const filtered = state.possessionStats.filter(stat => stat.id !== action.statId);
+      return { ...state, possessionStats: filtered };
+    }
+    case 'RESET_CURRENT_POSSESSION': {
+      // no-op placeholder (state is already accumulated)
+      return state;
+    }
+    default:
+      return state;
+  }
+}
+
+const StoreCtx = createContext<{ state: State; dispatch: React.Dispatch<Action> }>({ state: initial, dispatch: () => {} });
+
+export function StoreProvider({ children }: { children: React.ReactNode }) {
+  const [state, dispatch] = useReducer(reducer, initial);
+
+  // load/persist to localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('cb_labeler_state_v1');
+    if (saved) {
+      try { dispatch({ type: 'LOAD_STATE', payload: JSON.parse(saved) as State }); } catch {}
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('cb_labeler_state_v1', JSON.stringify(state));
+  }, [state]);
+
+  const value = useMemo(() => ({ state, dispatch }), [state]);
+  return <StoreCtx.Provider value={value}>{children}</StoreCtx.Provider>;
+}
+
+export function useStore() { return useContext(StoreCtx); }
