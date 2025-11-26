@@ -1,8 +1,14 @@
 // PostCSS configuration for Next.js
-// Minimal configuration that works with Next.js 14 App Router
-// This is required for Next.js to process CSS files
+// Configuration includes all installed PostCSS plugins
 module.exports = {
   plugins: {
+    'postcss-import': {},
+    'postcss-preset-env': {
+      stage: 3,
+      features: {
+        'nesting-rules': true
+      }
+    },
     autoprefixer: {},
   },
 };
