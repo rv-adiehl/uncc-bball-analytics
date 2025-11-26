@@ -125,6 +125,7 @@ export default function RecordingFlow() {
       case 2:
         return (
           <>
+            {/* Action Configuration Card */}
             <div className="card">
               <h3>2 • Action Stat Sheet</h3>
               {!canLogActions && (
@@ -133,30 +134,35 @@ export default function RecordingFlow() {
                 </div>
               )}
               {canLogActions && (
-                <div className="grid grid-3">
-                  <div>
-                    <label>Action #</label>
-                    <input
-                      type="number"
-                      min={1}
-                      value={currentActionSeq}
-                      onChange={e => handleActionSeqChange(parseInt(e.target.value || '1', 10))}
-                    />
+                <>
+                  {/* Action Controls: Responsive grid for mobile */}
+                  <div className="grid grid-3" style={{ marginBottom: 8 }}>
+                    <div>
+                      <label>Action #</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={currentActionSeq}
+                        onChange={e => handleActionSeqChange(parseInt(e.target.value || '1', 10))}
+                      />
+                    </div>
+                    <div>
+                      <label>Action Context</label>
+                      <select value={currentActionMode} onChange={e => setCurrentActionMode(e.target.value as ActionMode)}>
+                        <option value="set">Set / Half Court</option>
+                        <option value="transition">Transition</option>
+                      </select>
+                    </div>
                   </div>
-                  <div>
-                    <label>Action Context</label>
-                    <select value={currentActionMode} onChange={e => setCurrentActionMode(e.target.value as ActionMode)}>
-                      <option value="set">Set / Half Court</option>
-                      <option value="transition">Transition</option>
-                    </select>
+                  {/* Guidance Text */}
+                  <div className="small" style={{ padding: '8px 0' }}>
+                    Tag each player involved, add rebound + shot context, then advance.
                   </div>
-                  <div>
-                    <label>Guidance</label>
-                    <div className="small">Tag each player involved, add rebound + shot context, then advance.</div>
-                  </div>
-                </div>
+                </>
               )}
             </div>
+
+            {/* Stat Grid: Main data entry interface */}
             {canLogActions && (
               <StatTable
                 gameId={currentGameId ?? undefined}
@@ -165,9 +171,13 @@ export default function RecordingFlow() {
                 mode={currentActionMode}
               />
             )}
+
+            {/* Action Timeline: Shows completed actions */}
             {canLogActions && (
               <ActionTimeline gameId={currentGameId ?? undefined} possId={activePossId ?? undefined} />
             )}
+
+            {/* Action Controls: Navigation buttons */}
             {canLogActions && (
               <div className="card">
                 <div className="flow-actions">

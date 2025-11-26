@@ -1,5 +1,5 @@
 'use client';
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import type { PossessionStatMode, PlayerPossessionStat } from '../lib/schema';
 import { useStore } from '../lib/store';
 
@@ -454,7 +454,14 @@ function padToFive(players: LineupEntry[]): LineupEntry[] {
   return padded;
 }
 
-export default function StatTable({ possId, gameId, teamCode, actionSeq, mode }: Props) {
+/**
+ * StatTable Component
+ * 
+ * High-performance stat tracking grid for possession data.
+ * Memoized to prevent unnecessary re-renders when parent state changes.
+ * Only re-renders when possId, gameId, actionSeq, or mode changes.
+ */
+const StatTable = ({ possId, gameId, teamCode, actionSeq, mode }: Props) => {
   const { state, dispatch } = useStore();
   const activeGameId = gameId || state.currentGameId;
 
@@ -514,7 +521,9 @@ export default function StatTable({ possId, gameId, teamCode, actionSeq, mode }:
     return map;
   }, [statsForPoss]);
 
-  const handleToggle = (playerId: string, playerTeamCode: string, def: StatDefinition) => {
+  // Memoize toggle handler to prevent recreation on every render
+  // This prevents child components from re-rendering unnecessarily
+  const handleToggle = useCallback((playerId: string, playerTeamCode: string, def: StatDefinition) => {
     if (!activeGameId || possId == null || !playerId) return;
     const lookupKey = makeStatLookupKey(playerId, playerTeamCode, def.key, def.mode, actionSeq);
     const existing = statLookup.get(lookupKey);
@@ -536,9 +545,10 @@ export default function StatTable({ possId, gameId, teamCode, actionSeq, mode }:
       };
       dispatch({ type: 'UPSERT_POSSESSION_STAT', row: next });
     }
-  };
+  }, [activeGameId, possId, actionSeq, statLookup, playerLookup, teamCode, dispatch]);
 
-  const renderDetailInputs = (stat: PlayerPossessionStat, fields?: StatDetailField[], context?: DetailContext) => {
+  // Memoize detail input renderer to avoid recreating on every render
+  const renderDetailInputs = useCallback((stat: PlayerPossessionStat, fields?: StatDetailField[], context?: DetailContext) => {
     if (!fields || !stat) return null;
     const handleFieldChange = (field: StatDetailField) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
       const rawValue = field.type === 'number' ? (e.target.value ? Number(e.target.value) : undefined) : e.target.value;
@@ -605,7 +615,7 @@ export default function StatTable({ possId, gameId, teamCode, actionSeq, mode }:
         })}
       </div>
     );
-  };
+  }, [dispatch]);
 
   if (!activeGameId || possId == null) {
     return (
@@ -711,4 +721,16 @@ export default function StatTable({ possId, gameId, teamCode, actionSeq, mode }:
       </div>
     </div>
   );
-}
+};
+
+// Export memoized version to prevent re-renders when parent state changes
+// Component only re-renders when these specific props change
+export default React.memo(StatTable, (prevProps, nextProps) => {
+  return (
+    prevProps.possId === nextProps.possId &&
+    prevProps.gameId === nextProps.gameId &&
+    prevProps.actionSeq === nextProps.actionSeq &&
+    prevProps.mode === nextProps.mode &&
+    prevProps.teamCode === nextProps.teamCode
+  );
+});

@@ -60,7 +60,13 @@ function usePossessionStatData(gameId?: string, possId?: number | null) {
   return { stats, playerLookup };
 }
 
-export function ActionTimeline({ gameId, possId }: Props) {
+/**
+ * ActionTimeline Component
+ * 
+ * Displays action stats grouped by action sequence number.
+ * Memoized to prevent re-renders when unrelated state changes.
+ */
+const ActionTimelineComponent = ({ gameId, possId }: Props) => {
   const { stats, playerLookup } = usePossessionStatData(gameId, possId);
 
   const grouped: GroupedStats[] = useMemo(() => {
@@ -109,9 +115,20 @@ export function ActionTimeline({ gameId, possId }: Props) {
       ))}
     </div>
   );
-}
+};
 
-export function PossessionSummaryCard({ gameId, possId }: Props) {
+// Export memoized version
+export const ActionTimeline = React.memo(ActionTimelineComponent, (prevProps, nextProps) => {
+  return prevProps.gameId === nextProps.gameId && prevProps.possId === nextProps.possId;
+});
+
+/**
+ * PossessionSummaryCard Component
+ * 
+ * Shows aggregated stats for a possession.
+ * Memoized to prevent re-renders when unrelated state changes.
+ */
+const PossessionSummaryCardComponent = ({ gameId, possId }: Props) => {
   const { stats, playerLookup } = usePossessionStatData(gameId, possId);
 
   const summaryRows: SummaryRow[] = useMemo(() => {
@@ -187,4 +204,9 @@ export function PossessionSummaryCard({ gameId, possId }: Props) {
       </div>
     </div>
   );
-}
+};
+
+// Export memoized version
+export const PossessionSummaryCard = React.memo(PossessionSummaryCardComponent, (prevProps, nextProps) => {
+  return prevProps.gameId === nextProps.gameId && prevProps.possId === nextProps.possId;
+});

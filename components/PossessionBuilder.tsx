@@ -1,6 +1,6 @@
 
 'use client';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useStore } from '../lib/store';
 import type { Possession, PossessionPlayer } from '../lib/schema';
 
@@ -70,7 +70,14 @@ function clampInteger(value: string, min: number, max: number) {
   return Math.min(Math.max(parsed, min), max);
 }
 
-export default function PossessionBuilder({ activePeriod, onStarted, canStart = true }: Props) {
+/**
+ * PossessionBuilder Component
+ * 
+ * Complex form for setting up possession metadata and lineups.
+ * Memoized to prevent re-renders when unrelated state changes.
+ * Only re-renders when activePeriod, onStarted, or canStart changes.
+ */
+const PossessionBuilder = ({ activePeriod, onStarted, canStart = true }: Props) => {
   const { state, dispatch } = useStore();
   const currentGame = useMemo(() => state.games.find(g => g.game_id === state.currentGameId), [state.games, state.currentGameId]);
   const defaultOffense = currentGame?.our_team_code || 'CHA';
@@ -155,7 +162,8 @@ export default function PossessionBuilder({ activePeriod, onStarted, canStart = 
     }
   }, [off5, form.ball_advancer_player_id]);
 
-  const handleClockChange = (field: 'start_clock' | 'end_clock') => (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Memoize clock change handler to prevent recreation on every render
+  const handleClockChange = useCallback((field: 'start_clock' | 'end_clock') => (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
     let sanitized = raw.replace(/[^\d:]/g, '');
     const firstColon = sanitized.indexOf(':');
@@ -165,9 +173,9 @@ export default function PossessionBuilder({ activePeriod, onStarted, canStart = 
       sanitized = before + after;
     }
     setClockDrafts(prev => ({ ...prev, [field]: sanitized }));
-  };
+  }, []);
 
-  const handleClockBlur = (field: 'start_clock' | 'end_clock') => () => {
+  const handleClockBlur = useCallback((field: 'start_clock' | 'end_clock') => () => {
     const raw = clockDrafts[field] || '';
     const formatted = normalizeClockInput(raw);
     if (formatted === null) {
@@ -179,9 +187,9 @@ export default function PossessionBuilder({ activePeriod, onStarted, canStart = 
       if ((prev[field] || '') === formatted) return prev;
       return { ...prev, [field]: formatted };
     });
-  };
+  }, [clockDrafts, form]);
 
-  const commitClockForSave = (field: 'start_clock' | 'end_clock') => {
+  const commitClockForSave = useCallback((field: 'start_clock' | 'end_clock') => {
     const raw = clockDrafts[field] || '';
     const formatted = normalizeClockInput(raw);
     const safeValue = formatted ?? '';
@@ -193,9 +201,9 @@ export default function PossessionBuilder({ activePeriod, onStarted, canStart = 
       return { ...prev, [field]: safeValue };
     });
     return safeValue;
-  };
+  }, [clockDrafts, form]);
 
-  const handleIntegerFieldChange = (field: 'time_to_cross_half_sec' | 'time_to_enter_set_sec', min: number, max: number) => (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleIntegerFieldChange = useCallback((field: 'time_to_cross_half_sec' | 'time_to_enter_set_sec', min: number, max: number) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setForm(prev => {
       if (!value) {
@@ -207,7 +215,7 @@ export default function PossessionBuilder({ activePeriod, onStarted, canStart = 
       if (prev[field] === clamped) return prev;
       return { ...prev, [field]: clamped };
     });
-  };
+  }, []);
 
   const ballAdvancerOptions = useMemo(() => off5
     .filter(pid => !!pid)
@@ -216,7 +224,7 @@ export default function PossessionBuilder({ activePeriod, onStarted, canStart = 
       return { id: pid, label: player ? `${player.player_id} • ${player.name}` : pid };
     }), [off5, offenseRoster]);
 
-  const start = () => {
+  const start = useCallback(() => {
     if (!canStart) { alert('Game flow is paused. Resume or start a new period before adding possessions.'); return; }
     if (!state.currentGameId) { alert('Create/Load a game first.'); return; }
     const startClock = commitClockForSave('start_clock');
@@ -233,40 +241,89 @@ export default function PossessionBuilder({ activePeriod, onStarted, canStart = 
     // bump fields for next possession
     setForm(prev => ({ ...prev, poss_id: prev.poss_id + 1 }));
     onStarted?.(poss);
-  };
+  }, [canStart, state.currentGameId, state.nextPossId, form, off5, def5, dispatch, commitClockForSave, onStarted]);
 
+  /**
+   * RENDER: Possession Builder Form
+   * 
+   * Complex form for setting up a possession:
+   * - Game metadata (period, teams, clock times)
+   * - Offensive and defensive lineups (5 players each)
+   * - Advanced tracking (ball handler, timing, sets)
+   * 
+   * Mobile Optimization:
+   * - Grid-4 collapses to single column on mobile
+   * - Grid-2 lineup section stacks vertically on mobile
+   * - All inputs have proper touch targets
+   */
   return (
     <div className="card">
       <h3>Possession Builder</h3>
+      
+      {/* Main possession metadata form */}
       <div className="grid grid-4">
-        <div><label>Game</label><div className="badge">{state.currentGameId || '—'}</div></div>
-        <div><label>Next Poss ID</label><div className="badge">{state.nextPossId}</div></div>
-        <div><label>Period</label><input type="number" min={1} max={5} value={form.period} onChange={e=>setForm({...form, period: parseInt(e.target.value||'1')})}/></div>
-        <div><label>Type</label>
+        <div>
+          <label>Game</label>
+          <div className="badge">{state.currentGameId || '—'}</div>
+        </div>
+        <div>
+          <label>Next Poss ID</label>
+          <div className="badge">{state.nextPossId}</div>
+        </div>
+        <div>
+          <label>Period</label>
+          <input type="number" min={1} max={5} value={form.period} onChange={e=>setForm({...form, period: parseInt(e.target.value||'1')})}/>
+        </div>
+        <div>
+          <label>Type</label>
           <select value={form.possession_type||''} onChange={e=>setForm({...form, possession_type: e.target.value})}>
-            <option>fast_break</option><option>secondary_break</option><option>half_court</option><option>blob</option><option>slob</option><option>press_break</option><option>ato</option>
+            <option>fast_break</option>
+            <option>secondary_break</option>
+            <option>half_court</option>
+            <option>blob</option>
+            <option>slob</option>
+            <option>press_break</option>
+            <option>ato</option>
           </select>
         </div>
-        <div><label>Offense Team</label>
+        <div>
+          <label>Offense Team</label>
           <select value={form.offense_team} onChange={e=>setForm({...form, offense_team: e.target.value})}>
             {[defaultOffense, defaultDefense].map(code => (
               <option key={code} value={code}>{code}</option>
             ))}
           </select>
         </div>
-        <div><label>Defense Team</label>
+        <div>
+          <label>Defense Team</label>
           <select value={form.defense_team} onChange={e=>setForm({...form, defense_team: e.target.value})}>
             {[defaultDefense, defaultOffense].map(code => (
               <option key={code} value={code}>{code}</option>
             ))}
           </select>
         </div>
-        <div><label>Start Clock (mm:ss)</label><input value={clockDrafts.start_clock} onChange={handleClockChange('start_clock')} onBlur={handleClockBlur('start_clock')} placeholder="0:00"/></div>
-        <div><label>End Clock (mm:ss)</label><input value={clockDrafts.end_clock} onChange={handleClockChange('end_clock')} onBlur={handleClockBlur('end_clock')} placeholder="0:00"/></div>
-        <div><label>Offensive Set</label><input value={form.offensive_set||''} onChange={e=>setForm({...form, offensive_set: e.target.value})}/></div>
-        <div><label>Defensive Set</label><input value={form.defensive_set||''} onChange={e=>setForm({...form, defensive_set: e.target.value})}/></div>
-        <div><label>Press Type</label><input value={form.press_type||''} onChange={e=>setForm({...form, press_type: e.target.value})}/></div>
-        <div><label>Ball Advancer</label>
+        <div>
+          <label>Start Clock (mm:ss)</label>
+          <input value={clockDrafts.start_clock} onChange={handleClockChange('start_clock')} onBlur={handleClockBlur('start_clock')} placeholder="0:00"/>
+        </div>
+        <div>
+          <label>End Clock (mm:ss)</label>
+          <input value={clockDrafts.end_clock} onChange={handleClockChange('end_clock')} onBlur={handleClockBlur('end_clock')} placeholder="0:00"/>
+        </div>
+        <div>
+          <label>Offensive Set</label>
+          <input value={form.offensive_set||''} onChange={e=>setForm({...form, offensive_set: e.target.value})}/>
+        </div>
+        <div>
+          <label>Defensive Set</label>
+          <input value={form.defensive_set||''} onChange={e=>setForm({...form, defensive_set: e.target.value})}/>
+        </div>
+        <div>
+          <label>Press Type</label>
+          <input value={form.press_type||''} onChange={e=>setForm({...form, press_type: e.target.value})}/>
+        </div>
+        <div>
+          <label>Ball Advancer</label>
           <select value={form.ball_advancer_player_id||''} onChange={e=>setForm({...form, ball_advancer_player_id: e.target.value})}>
             <option value="">—</option>
             {ballAdvancerOptions.map(opt => (
@@ -274,17 +331,24 @@ export default function PossessionBuilder({ activePeriod, onStarted, canStart = 
             ))}
           </select>
         </div>
-        <div><label>Time to Cross (s)</label><input type="number" min={0} max={10} step={1} value={form.time_to_cross_half_sec ?? ''} onChange={handleIntegerFieldChange('time_to_cross_half_sec', 0, 10)}/></div>
-        <div><label>Time to Enter Set (s)</label><input type="number" min={0} max={30} step={1} value={form.time_to_enter_set_sec ?? ''} onChange={handleIntegerFieldChange('time_to_enter_set_sec', 0, 30)}/></div>
+        <div>
+          <label>Time to Cross (s)</label>
+          <input type="number" min={0} max={10} step={1} value={form.time_to_cross_half_sec ?? ''} onChange={handleIntegerFieldChange('time_to_cross_half_sec', 0, 10)}/>
+        </div>
+        <div>
+          <label>Time to Enter Set (s)</label>
+          <input type="number" min={0} max={30} step={1} value={form.time_to_enter_set_sec ?? ''} onChange={handleIntegerFieldChange('time_to_enter_set_sec', 0, 30)}/>
+        </div>
       </div>
 
+      {/* Lineup selection: Offense and Defense (5 players each) */}
       <div className="grid grid-2" style={{marginTop:12}}>
         <div className="card">
           <h3>Offense Lineup ({form.offense_team})</h3>
           {off5.map((v,idx)=>(
-            <div className="row" key={idx}>
-              <label>Slot {idx+1}</label>
-              <select value={v} onChange={e=>{ const cp=[...off5]; cp[idx]=e.target.value; setOff5(cp); }}>
+            <div className="row" key={idx} style={{ marginBottom: 8 }}>
+              <label style={{ minWidth: 60 }}>Slot {idx+1}</label>
+              <select value={v} onChange={e=>{ const cp=[...off5]; cp[idx]=e.target.value; setOff5(cp); }} style={{ flex: 1 }}>
                 <option value="">—</option>
                 {offenseRoster.map(p=> <option key={p.player_id} value={p.player_id}>{p.player_id} • {p.name}</option>)}
               </select>
@@ -294,9 +358,9 @@ export default function PossessionBuilder({ activePeriod, onStarted, canStart = 
         <div className="card">
           <h3>Defense Lineup ({form.defense_team})</h3>
           {def5.map((v,idx)=>(
-            <div className="row" key={idx}>
-              <label>Slot {idx+1}</label>
-              <select value={v} onChange={e=>{ const cp=[...def5]; cp[idx]=e.target.value; setDef5(cp); }}>
+            <div className="row" key={idx} style={{ marginBottom: 8 }}>
+              <label style={{ minWidth: 60 }}>Slot {idx+1}</label>
+              <select value={v} onChange={e=>{ const cp=[...def5]; cp[idx]=e.target.value; setDef5(cp); }} style={{ flex: 1 }}>
                 <option value="">—</option>
                 {defenseRoster.map(p=> <option key={p.player_id} value={p.player_id}>{p.player_id} • {p.name}</option>)}
               </select>
@@ -305,10 +369,21 @@ export default function PossessionBuilder({ activePeriod, onStarted, canStart = 
         </div>
       </div>
 
+      {/* Submit button */}
       <div className="row" style={{marginTop:12}}>
         <button className="primary" onClick={start} disabled={!canStart}>Start / Record Possession</button>
         <div className="small">Tip: Lineups can be partial while you chart; you can fill missing ids later.</div>
       </div>
     </div>
   );
-}
+};
+
+// Export memoized version to prevent re-renders when parent state changes
+// Component only re-renders when these specific props change
+export default React.memo(PossessionBuilder, (prevProps, nextProps) => {
+  return (
+    prevProps.activePeriod === nextProps.activePeriod &&
+    prevProps.onStarted === nextProps.onStarted &&
+    prevProps.canStart === nextProps.canStart
+  );
+});

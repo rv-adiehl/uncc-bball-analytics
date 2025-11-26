@@ -6,6 +6,13 @@ import RosterEditor from '../components/RosterEditor';
 import RecordingFlow from '../components/RecordingFlow';
 import ExportPanel from '../components/ExportPanel';
 
+/**
+ * Main App Component
+ * 
+ * Updated to use the new split context architecture.
+ * StoreProvider now wraps multiple focused contexts (Game, Roster, Possession, Stats).
+ */
+
 function AppInner() {
   const [step, setStep] = useState<number>(1);
   const { state } = useStore();

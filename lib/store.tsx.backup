@@ -153,8 +153,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Debounced localStorage write to prevent UI blocking on every keystroke
+  // Writes occur 500ms after the last state change
   useEffect(() => {
-    localStorage.setItem('cb_labeler_state_v1', JSON.stringify(state));
+    const timer = setTimeout(() => {
+      localStorage.setItem('cb_labeler_state_v1', JSON.stringify(state));
+    }, 500);
+    return () => clearTimeout(timer);
   }, [state]);
 
   const value = useMemo(() => ({ state, dispatch }), [state]);

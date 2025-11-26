@@ -121,54 +121,92 @@ export default function GameSetup() {
     dispatch({ type: 'CLEAR_CURRENT_GAME' });
   };
 
+  /**
+   * RENDER: Game Setup Form
+   * 
+   * This component handles:
+   * - NCAA team selection (auto-imports rosters)
+   * - Game metadata (date, location, codes)
+   * - Game identification and locking
+   * 
+   * Mobile Optimization:
+   * - Grid collapses to single column on mobile
+   * - Large touch targets for all inputs
+   * - Clear visual hierarchy
+   */
   return (
     <div className="card">
       <h3>Game Setup</h3>
-      <div className="grid grid-4">
-        <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gridColumn: 'span 4' }}>
-          <div>
-            <label>Our Team (NCAA)</label>
-            <select value={game.our_team_espn_id || ''} onChange={e => handleTeamSelect('our', e.target.value)} disabled={isLocked}>
-              <option value="">{teamsLoading ? 'Loading teams…' : 'Select team'}</option>
-              {teams.map(team => (
-                <option key={team.id} value={team.id}>
-                  {team.displayName}{team.abbreviation ? ` (${team.abbreviation})` : ''}
-                </option>
-              ))}
-            </select>
-            <div className="small">Used when auto-importing rosters.</div>
-          </div>
-          <div>
-            <label>Opponent (NCAA)</label>
-            <select value={game.opp_team_espn_id || ''} onChange={e => handleTeamSelect('opp', e.target.value)} disabled={isLocked}>
-              <option value="">{teamsLoading ? 'Loading teams…' : 'Select team'}</option>
-              {teams.map(team => (
-                <option key={team.id} value={team.id}>
-                  {team.displayName}{team.abbreviation ? ` (${team.abbreviation})` : ''}
-                </option>
-              ))}
-            </select>
-            <div className="small">Pick the opponent you want to import from ESPN.</div>
-          </div>
+      {/* Team Selection: ESPN NCAA integration */}
+      <div className="grid grid-2" style={{ marginBottom: 12 }}>
+        <div>
+          <label>Our Team (NCAA)</label>
+          <select value={game.our_team_espn_id || ''} onChange={e => handleTeamSelect('our', e.target.value)} disabled={isLocked}>
+            <option value="">{teamsLoading ? 'Loading teams…' : 'Select team'}</option>
+            {teams.map(team => (
+              <option key={team.id} value={team.id}>
+                {team.displayName}{team.abbreviation ? ` (${team.abbreviation})` : ''}
+              </option>
+            ))}
+          </select>
+          <div className="small">Used when auto-importing rosters.</div>
         </div>
+        <div>
+          <label>Opponent (NCAA)</label>
+          <select value={game.opp_team_espn_id || ''} onChange={e => handleTeamSelect('opp', e.target.value)} disabled={isLocked}>
+            <option value="">{teamsLoading ? 'Loading teams…' : 'Select team'}</option>
+            {teams.map(team => (
+              <option key={team.id} value={team.id}>
+                {team.displayName}{team.abbreviation ? ` (${team.abbreviation})` : ''}
+              </option>
+            ))}
+          </select>
+          <div className="small">Pick the opponent you want to import from ESPN.</div>
+        </div>
+      </div>
+
+      {/* Game Details: Core metadata */}
+      <div className="grid grid-4">
         <div>
           <label>Game Code</label>
           <input value={generatedGameId} placeholder="2025-11-11-CHA-VS-DAV" readOnly disabled />
           <div className="small">Auto-generated from date + matchup (locked)</div>
         </div>
-        <div><label>Date</label><input type="date" value={game.date||''} onChange={e=>setGame({...game, date: e.target.value})} placeholder="2025-11-11" disabled={isLocked} /></div>
-        <div><label>Opponent</label><input value={game.opponent||''} onChange={e=>setGame({...game, opponent: e.target.value})} placeholder="DAV" disabled={isLocked} /></div>
-        <div><label>Home / Away</label>
+        <div>
+          <label>Date</label>
+          <input type="date" value={game.date||''} onChange={e=>setGame({...game, date: e.target.value})} placeholder="2025-11-11" disabled={isLocked} />
+        </div>
+        <div>
+          <label>Opponent</label>
+          <input value={game.opponent||''} onChange={e=>setGame({...game, opponent: e.target.value})} placeholder="DAV" disabled={isLocked} />
+        </div>
+        <div>
+          <label>Home / Away</label>
           <select value={game.home_away} onChange={e=>setGame({...game, home_away: e.target.value as any})} disabled={isLocked}>
-            <option value="H">Home</option><option value="A">Away</option><option value="N">Neutral</option>
+            <option value="H">Home</option>
+            <option value="A">Away</option>
+            <option value="N">Neutral</option>
           </select>
         </div>
-        <div><label>Our Team Code</label><input value={game.our_team_code||''} onChange={e=>setGame({...game, our_team_code: e.target.value})} disabled={isLocked} /></div>
-        <div><label>Opp Team Code</label><input value={game.opp_team_code||''} onChange={e=>setGame({...game, opp_team_code: e.target.value})} disabled={isLocked} /></div>
-        <div className="grid" style={{gridTemplateColumns: '1fr'}}><label>Notes</label><textarea value={game.notes||''} onChange={e=>setGame({...game, notes: e.target.value})} disabled={isLocked} /></div>
+        <div>
+          <label>Our Team Code</label>
+          <input value={game.our_team_code||''} onChange={e=>setGame({...game, our_team_code: e.target.value})} disabled={isLocked} />
+        </div>
+        <div>
+          <label>Opp Team Code</label>
+          <input value={game.opp_team_code||''} onChange={e=>setGame({...game, opp_team_code: e.target.value})} disabled={isLocked} />
+        </div>
+        <div style={{ gridColumn: '1 / -1' }}>
+          <label>Notes</label>
+          <textarea value={game.notes||''} onChange={e=>setGame({...game, notes: e.target.value})} disabled={isLocked} />
+        </div>
       </div>
-      {teamsError && <div className="small" style={{ color: 'var(--bad)' }}>Unable to load NCAA teams: {teamsError}</div>}
-      <div className="row" style={{marginTop:8}}>
+
+      {/* Error Display */}
+      {teamsError && <div className="small" style={{ color: 'var(--bad)', marginTop: 8 }}>Unable to load NCAA teams: {teamsError}</div>}
+      
+      {/* Actions: Create/Reset game */}
+      <div className="row" style={{marginTop:12}}>
         <button className="primary" onClick={setCurrent} disabled={isLocked}>Create / Load Game</button>
         <button className="ghost" onClick={resetGame} disabled={!isLocked}>Reset Game Setup</button>
         <div className="small">Current: <span className="badge">{state.currentGameId || '—'}</span></div>

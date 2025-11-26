@@ -86,9 +86,24 @@ export default function ExportPanel() {
     downloadCSV(filename, csv);
   };
 
+  /**
+   * RENDER: Export Panel
+   * 
+   * Provides CSV export functionality:
+   * - Quick stats overview with badges
+   * - Bulk export (all CSVs at once)
+   * - Individual CSV downloads
+   * 
+   * Mobile Optimization:
+   * - Badges wrap naturally on small screens
+   * - Grid-2 layout collapses to single column on mobile
+   * - Export buttons are touch-friendly
+   */
   return (
     <div className="card">
       <h3>Review & Export</h3>
+      
+      {/* Data summary badges - wraps nicely on mobile */}
       <div className="row">
         <div className="badge">Possessions: {state.possessions.length}</div>
         <div className="badge">Lineups: {state.possPlayers.length}</div>
@@ -97,17 +112,21 @@ export default function ExportPanel() {
         <div className="badge">Actions: {state.playerActions.length}</div>
         <div className="badge">Possession Stats: {state.possessionStats.length}</div>
       </div>
-      <div className="row" style={{marginTop:8}}>
+
+      {/* Bulk export button */}
+      <div className="row" style={{marginTop:12}}>
         <button className="success" onClick={exportAll}>Export All CSVs</button>
         <div className="small">
           Downloads the original schema plus a new possession + action detail CSV that joins every tagged stat to its possession context.
         </div>
       </div>
-      <div className="grid grid-2" style={{ marginTop: 16, gap: 12 }}>
+
+      {/* Individual export cards - responsive grid */}
+      <div className="grid grid-2" style={{ marginTop: 16 }}>
         {individualExports.map(item => (
           <div key={item.key} className="card" style={{ padding: 12 }}>
-            <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
+            <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+              <div style={{ flex: 1 }}>
                 <div><strong>{item.label}</strong></div>
                 <div className="small">{item.count} rows</div>
               </div>
@@ -115,16 +134,18 @@ export default function ExportPanel() {
                 className="primary"
                 onClick={() => handleIndividualDownload(item.filename, item.run)}
                 disabled={item.count === 0}
+                style={{ flexShrink: 0 }}
               >
                 Download
               </button>
             </div>
-            <div className="small" style={{ marginTop: 4 }}>
+            <div className="small" style={{ marginTop: 4, wordBreak: 'break-all' }}>
               {item.filename}
             </div>
           </div>
         ))}
       </div>
+
       <hr className="sep"/>
       <div className="small">Tip: Your work auto-saves to the browser. To reset, clear your browser storage for this site.</div>
     </div>

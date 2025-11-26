@@ -198,20 +198,45 @@ export default function RosterEditor() {
     };
   }, [currentGame?.game_id, currentGame?.our_team_espn_id, currentGame?.opp_team_espn_id]);
 
+  /**
+   * RENDER ROSTER COLUMN: Team-specific roster management
+   * 
+   * Each side (our/opp) gets its own column with:
+   * - Player entry form (responsive grid layout)
+   * - Roster table (horizontally scrollable on mobile)
+   * - Edit/delete actions
+   * 
+   * Mobile Optimization:
+   * - Form fields stack vertically on small screens
+   * - Table scrolls horizontally to preserve all columns
+   * - Touch-friendly buttons
+   */
   const renderRosterColumn = (side: Side, players: Player[]) => {
     const form = forms[side];
     const editingId = editingIds[side];
     const teamCode = side === 'our' ? ourTeamCode : oppTeamCode;
     return (
-      <div key={side} style={{ border: '1px solid #223050', borderRadius: 10, padding: 12 }}>
-        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <div>
+      <div 
+        key={side} 
+        style={{ 
+          border: '1px solid var(--border)', 
+          borderRadius: 10, 
+          padding: 12,
+          minWidth: 0,  // Critical: Allows flex/grid children to shrink below content size
+          width: '100%',  // Ensures it respects parent container width
+        }}
+      >
+        {/* Team Header */}
+        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <div style={{ minWidth: 0, flex: 1 }}>
             <div className="small" style={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>{side === 'our' ? 'Our Team' : 'Opponent'}</div>
-            <h4 style={{ margin: '4px 0 0 0' }}>{teamLabel[side]}</h4>
+            <h4 style={{ margin: '4px 0 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{teamLabel[side]}</h4>
           </div>
-          <span className="badge">{teamCode}</span>
+          <span className="badge" style={{ flexShrink: 0 }}>{teamCode}</span>
         </div>
-        <div className="grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+
+        {/* Player Entry Form: Responsive grid collapses on mobile */}
+        <div className="grid grid-2" style={{ marginBottom: 8 }}>
           <div>
             <label>Player ID</label>
             <input value={form.player_id} onChange={e => updateForm(side, 'player_id', e.target.value)} placeholder="KB" />
@@ -220,7 +245,7 @@ export default function RosterEditor() {
             <label>Jersey</label>
             <input value={form.jersey} onChange={e => updateForm(side, 'jersey', e.target.value)} placeholder="1" />
           </div>
-          <div style={{ gridColumn: 'span 2' }}>
+          <div style={{ gridColumn: '1 / -1' }}>
             <label>Name</label>
             <input value={form.name} onChange={e => updateForm(side, 'name', e.target.value)} placeholder="Kylan Blackmon" />
           </div>
@@ -232,52 +257,95 @@ export default function RosterEditor() {
             <label>Height (in)</label>
             <input type="number" inputMode="numeric" value={form.height_in} onChange={e => updateForm(side, 'height_in', e.target.value)} placeholder="78" />
           </div>
-          <div>
+          <div style={{ gridColumn: '1 / -1' }}>
             <label>Weight (lbs)</label>
             <input type="number" inputMode="numeric" value={form.weight_lb} onChange={e => updateForm(side, 'weight_lb', e.target.value)} placeholder="210" />
           </div>
         </div>
+
+        {/* Action Buttons */}
         <div className="row" style={{ marginTop: 8, gap: 8 }}>
           <button className="primary" onClick={() => savePlayer(side)}>{editingId ? 'Save Player' : 'Add Player'}</button>
           {editingId && <button className="ghost" onClick={() => cancelEdit(side)}>Cancel</button>}
         </div>
-        <table className="table" style={{ marginTop: 12 }}>
-          <thead>
-            <tr>
-              <th style={{ width: '12%' }}>#</th>
-              <th>Name</th>
-              <th style={{ width: '12%' }}>Pos</th>
-              <th style={{ width: '18%' }}>Ht</th>
-              <th style={{ width: '18%' }}>Wt</th>
-              <th style={{ width: '12%' }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {players.length === 0 && (
-              <tr><td colSpan={6} style={{ textAlign: 'center' }}>No players yet.</td></tr>
-            )}
-            {players.map(player => (
-              <tr key={player.player_id}>
-                <td>{player.jersey || '—'}</td>
-                <td>{player.name}</td>
-                <td>{player.position || '—'}</td>
-                <td>{formatHeight(player.height_in)}</td>
-                <td>{formatWeight(player.weight_lb)}</td>
-                <td>
-                  <button className="ghost" onClick={() => startEdit(side, player)}>Edit</button>
-                </td>
+
+        {/* Roster Table: Scrolls horizontally, contained within parent */}
+        <div style={{ 
+          overflowX: 'auto', 
+          marginTop: 12,
+          width: '100%',  // Ensure it respects parent width
+          WebkitOverflowScrolling: 'touch',  // Smooth scrolling on iOS
+        }}>
+          <table className="table" style={{ 
+            width: '100%',  // Table uses full available width but allows scroll if needed
+            tableLayout: 'auto',  // Allow natural column sizing
+          }}>
+            <thead>
+              <tr>
+                <th style={{ minWidth: 40, width: '8%' }}>#</th>
+                <th style={{ minWidth: 150, width: '40%' }}>Name</th>
+                <th style={{ minWidth: 45, width: '10%' }}>Pos</th>
+                <th style={{ minWidth: 60, width: '15%' }}>Ht</th>
+                <th style={{ minWidth: 60, width: '15%' }}>Wt</th>
+                <th style={{ minWidth: 70, width: '12%' }}>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {players.length === 0 && (
+                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '16px' }}>No players yet.</td></tr>
+              )}
+              {players.map(player => (
+                <tr key={player.player_id}>
+                  <td style={{ whiteSpace: 'nowrap' }}>{player.jersey || '—'}</td>
+                  <td style={{ 
+                    maxWidth: 200,  // Prevent extremely long names from breaking layout
+                    overflow: 'hidden', 
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }} title={player.name}>{player.name}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>{player.position || '—'}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>{formatHeight(player.height_in)}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>{formatWeight(player.weight_lb)}</td>
+                  <td>
+                    <button 
+                      className="ghost" 
+                      style={{ 
+                        padding: '6px 12px', 
+                        fontSize: 12,
+                        whiteSpace: 'nowrap'
+                      }} 
+                      onClick={() => startEdit(side, player)}
+                    >
+                      Edit
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     );
   };
 
+  /**
+   * MAIN RENDER: Roster Management Interface
+   * 
+   * Provides:
+   * - Auto-import status display
+   * - Two-column layout (our team vs opponent)
+   * - Additional teams section if needed
+   * 
+   * Layout Strategy:
+   * - Single column on mobile for better usability
+   * - Two columns on tablet+ for side-by-side comparison
+   */
   return (
     <div className="card">
       <h3>Roster</h3>
-      <div style={{ border: '1px dashed #223050', borderRadius: 10, padding: 12, marginBottom: 12 }}>
+      
+      {/* Import Status Banner */}
+      <div style={{ border: '1px dashed var(--border)', borderRadius: 10, padding: 12, marginBottom: 12 }}>
         <div>
           <div className="small">NCAA rosters import automatically when you create or load a game.</div>
           {currentGame ? (
@@ -288,30 +356,47 @@ export default function RosterEditor() {
         </div>
         {importStatus && <div className="small" style={{ marginTop: 6 }}>{importStatus}</div>}
       </div>
-      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+
+      {/* Roster Columns: Responsive grid for our team and opponent 
+          Key: Using minmax(0, 1fr) prevents columns from expanding beyond container
+      */}
+      <div className="grid" style={{ 
+        gridTemplateColumns: 'minmax(0, 1fr)',
+        gap: 16,
+        width: '100%',  // Explicit width constraint
+      }}>
         {renderRosterColumn('our', ourPlayers)}
         {renderRosterColumn('opp', oppPlayers)}
       </div>
+
+      {/* Additional Teams: Only shown if players from other teams exist */}
       {otherPlayers.length > 0 && (
         <>
           <hr className="sep" />
           <div>
             <h4>Additional Teams</h4>
-            <table className="table">
-              <thead>
-                <tr><th>Team</th><th>ID</th><th>Name</th><th>#</th></tr>
-              </thead>
-              <tbody>
-                {otherPlayers.map(player => (
-                  <tr key={`${player.team_code}-${player.player_id}`}>
-                    <td>{player.team_code}</td>
-                    <td>{player.player_id}</td>
-                    <td>{player.name}</td>
-                    <td>{player.jersey || '—'}</td>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th style={{ minWidth: 80 }}>Team</th>
+                    <th style={{ minWidth: 100 }}>ID</th>
+                    <th style={{ minWidth: 150 }}>Name</th>
+                    <th style={{ minWidth: 50 }}>#</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {otherPlayers.map(player => (
+                    <tr key={`${player.team_code}-${player.player_id}`}>
+                      <td>{player.team_code}</td>
+                      <td>{player.player_id}</td>
+                      <td>{player.name}</td>
+                      <td>{player.jersey || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </>
       )}
